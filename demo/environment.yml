@@ -1,0 +1,18 @@
+name: tracking-barbell-exercises
+
+channels:
+  - defaults
+  - conda-forge
+
+dependencies:
+  - python=3.8
+  - pip
+  - bottleneck
+  - pip:
+      - numpy==1.23.5
+      - pandas==1.5.2
+      - ipykernel==6.17.1
+      - ipython==8.7.0
+      - jupyter-client==7.4.7
+      - jupyter-core==5.1.0
+      - matplotlib==3.6.2
