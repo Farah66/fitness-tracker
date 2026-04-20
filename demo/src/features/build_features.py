@@ -9,16 +9,14 @@ from sklearn.cluster import KMeans
 # --------------------------------------------------------------
 # Load data
 # --------------------------------------------------------------
+
 # %%
 
 from pathlib import Path
 
 
-
 BASE_DIR = Path(__file__).resolve().parents[2]
 data_path = BASE_DIR / "data" / "interim" / "02_outliers_removed_chauvenet.pkl"
-
-
 df = pd.read_pickle(data_path)
 
 predictor_columns = list(df.columns[:6])
