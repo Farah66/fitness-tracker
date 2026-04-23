@@ -45,7 +45,10 @@ df.info()
 df[df["set"] == 25]["acc_y"].plot()
 df[df["set"] == 50]["acc_y"].plot()
 
-duration = df[df["set"]  == 1].index[-1] - df[df["set"] == 1].index[0]    
+start = df[df["set"] == 1].index[0]
+stop = df[df["set"] == 1].index[-1]
+
+duration = stop - start
 duration.seconds
 
 for s in df["set"].unique():
@@ -61,7 +64,6 @@ duration_df = df.groupby(["category"])["duration"].mean()
 duration_df.iloc[0] / 5 
 duration_df.iloc[1] / 10
 
-
 # --------------------------------------------------------------
 # Butterworth lowpass filter
 # --------------------------------------------------------------
@@ -69,12 +71,12 @@ df_low_pass = df.copy()
 low_pass = LowPassFilter()
 
 fs = 1000 / 200
-cutoff = 1
+cutoff = 1.2
 
 df_low_pass = low_pass.low_pass_filter(df_low_pass, "acc_y", fs, cutoff, order=5)
 
 subset = df_low_pass[df_low_pass["set"] == 35]
-print(subset[subset["label"][0]])
+print(subset["label"].iloc[0])
 
 fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(20, 10))
 
@@ -105,6 +107,7 @@ for col in predictor_columns:
 df_pca = df_low_pass.copy()
 PCA = PrincipalComponentAnalysis()
 
+print(df_low_pass.columns.tolist())
 pc_values = PCA.determine_pc_explained_variance(df_pca, predictor_columns)
 
 plt.figure(figsize=(10, 10))
@@ -119,7 +122,6 @@ df_pca = PCA.apply_pca(df_pca, predictor_columns, 3)
 # Plot PCA components for one set
 subset = df_pca[df_pca["set"] == 35]
 subset[["pca_1", "pca_2", "pca_3"]].plot()
-
 
 # --------------------------------------------------------------
 # Sum of squares attributes
@@ -156,29 +158,33 @@ df_squared
 # Temporal abstraction
 # --------------------------------------------------------------
 df_temporal = df_squared.copy()
-
 NumAbs = NumericalAbstraction()
 
 predictor_columns = predictor_columns + ["acc_r", "gyr_r"]
 
-window_size = int(1000 / 200)
+
+ws = int(1000 / 200)
 
 for col in predictor_columns:
-    df_temporal = NumAbs.abstract_numerical(df_temporal, [col], window_size, "mean")
-    df_temporal = NumAbs.abstract_numerical(df_temporal, [col], window_size, "std")
-    
+    df_temporal = NumAbs.abstract_numerical(df_temporal, [col], ws, "mean")
+    df_temporal = NumAbs.abstract_numerical(df_temporal, [col], ws, "std")
+
+   
 df_temporal.list = []
+
 for s in df_temporal["set"].unique():
     subset = df_temporal[df_temporal["set"] == s].copy()
     for col in predictor_columns:
-        subset = NumAbs.abstract_numerical(subset, [col], window_size, "mean")
-        subset = NumAbs.abstract_numerical(subset, [col], window_size, "std")
+        subset = NumAbs.abstract_numerical(subset, [col], ws, "mean")
+        subset = NumAbs.abstract_numerical(subset, [col], ws, "std")
     df_temporal.list.append(subset)
     
-df_temporal = pd.concat(df_temporal.list, ignore_index=True)  
+df_temporal = pd.concat(df_temporal.list, ignore_index=True)
 
 subset[["acc_y", "acc_y_temp_mean_ws_5", "acc_y_temp_std_ws_5"]].plot()
 subset[["gyr_y", "gyr_y_temp_mean_ws_5", "gyr_y_temp_std_ws_5"]].plot()
+df_temporal.info()
+
   
 # --------------------------------------------------------------
 # Frequency features
@@ -187,34 +193,36 @@ df_freq = df_temporal.copy().reset_index()
 FreAbs = FourierTransformation()
 
 fs = int(1000 / 200)
-window_size =  int(2800 / 200)
+ws = int(2800 / 200)
 
-df_freq = FreAbs.abstract_frequency(df_freq, ["acc_y"], window_size, fs)  
+df_freq = FreAbs.abstract_frequency(df_freq, ["acc_y"], ws, fs)  
 
 #visualize result 
 subset = df_freq[df_freq["set"] == 15]
 subset[["acc_y"]].plot() 
-subset[
-    [
-    "acc_y",
+cols_to_plot = [
     "acc_y_max_freq",
     "acc_y_freq_weighted",
     "acc_y_pse",
-    "acc_y_freq_1.418_Hz_ws_14",
-    "acc_y_freq_2.482_Hz_ws_14",
-    ]
-].plot()
+    "acc_y_freq_1.333_Hz_ws_14",
+    "acc_y_freq_2.0_Hz_ws_14",
+]
+subset[cols_to_plot].plot()
+ 
 subset[cols_to_plot].plot(subplots=True, figsize=(12, 10))
+print([col for col in subset.columns if "acc_y_freq_" in col])
 
 df_freq.list = []
 for s in df_freq["set"].unique():
     subset = df_freq[df_freq["set"] == s].copy()
     print(f"applying frequency abstraction for set {s}")
     subset = df_freq[df_freq["set"] == s].reset_index(drop=True).copy()
-    subset = FreAbs.abstract_frequency(subset, predictor_columns, window_size, fs)
+    subset = FreAbs.abstract_frequency(subset, predictor_columns, ws, fs)
     df_freq.list.append(subset)
-    
-df_freq = pd.concat(df_freq.list).set_index("epoch (ms)", drop=True) 
+
+df_freq = pd.concat(df_freq.list, ignore_index=False)
+df_freq.index.name = "epoch (ms)"
+# df_freq = pd.concat(df_freq.list).set_index("epoch (ms)", drop=True) 
 # --------------------------------------------------------------
 # Dealing with overlapping windows
 # --------------------------------------------------------------
@@ -288,6 +296,9 @@ ax.set_zlabel("z-axis")
 
 plt.legend()
 plt.show()
+
+print("Total columns:", len(df_cluster.columns))
+print("All columns:", df_cluster.columns.tolist())
 # --------------------------------------------------------------
 # Export dataset
 df_cluster.to_pickle("../../data/interim/03_data_features.pkl")
